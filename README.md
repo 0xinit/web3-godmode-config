@@ -264,7 +264,7 @@ Both are triggered automatically via the CLAUDE.md delegation table — no manua
 
 ## What's Included
 
-### Skills (20)
+### Skills (16)
 
 | Skill | What It Does |
 |-------|-------------|
