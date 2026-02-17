@@ -34,6 +34,7 @@ This codebase will outlive you. Every shortcut becomes someone else's burden. Fi
 | Monad chain | `/web3-monad` | godmode |
 | MegaETH chain | `/web3-megaeth` | godmode |
 | Arbitrum dApp / Stylus | `/arbitrum-dapp-skill` | godmode |
+| Polymarket CLOB | `/web3-polymarket` | godmode |
 | Pre-deploy audit | `/smart-contract-audit` | godmode |
 | Deploy verification | `/deploy-check` | godmode |
 | UI components | `/frontend-design` | compound |

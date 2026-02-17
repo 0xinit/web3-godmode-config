@@ -265,7 +265,7 @@ Both are triggered automatically via the CLAUDE.md delegation table — no manua
 
 ## What's Included
 
-### Skills (17)
+### Skills (18)
 
 | Skill | What It Does |
 |-------|-------------|
@@ -285,6 +285,7 @@ Both are triggered automatically via the CLAUDE.md delegation table — no manua
 | `web3-monad` | MonadBFT, parallel execution, deployment |
 | `web3-megaeth` | Full MegaETH dev reference (14 files) |
 | `arbitrum-dapp-skill` | Arbitrum dApp development with Stylus (Rust) and Solidity (7 files) |
+| `web3-polymarket` | Polymarket CLOB integration: auth, orders, market data, WebSocket, CTF ops, bridge |
 | `web3-solidity-patterns` | Factory, Proxy, Diamond, Governor patterns |
 
 ### Agents (3)
