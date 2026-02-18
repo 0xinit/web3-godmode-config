@@ -1,6 +1,6 @@
 ---
 name: polymarket
-description: Complete Polymarket CLOB integration playbook. Covers authentication (L1/L2, builder headers, HMAC signing), order placement (GTC/GTD/FOK/FAK, batch, post-only, heartbeat), market data (Gamma API, Data API, orderbook), WebSocket streaming (market/user/sports channels), CTF operations (split, merge, redeem, neg risk), bridge (deposits, withdrawals, multi-chain), and gasless transactions (relayer client, order attribution). Use when building AI agents, autonomous market makers, prediction market UIs, or any application integrating with Polymarket's CLOB API.
+description: Polymarket CLOB integration. Auth, orders, orderbook, WebSocket, CTF operations, bridge, gasless trading.
 ---
 
 # Polymarket CLOB Skill

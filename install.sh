@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 BACKUP_DIR="$CLAUDE_DIR/backup-$(date +%Y%m%d-%H%M%S)"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+SKILLS_CONF="$SCRIPT_DIR/godmode-skills.conf"
 
 # Colors
 RED='\033[0;31m'
@@ -130,13 +131,48 @@ install_files() {
   cp "$SCRIPT_DIR"/agents/*.md "$CLAUDE_DIR/agents/"
   ok "Agents installed ($(ls "$SCRIPT_DIR"/agents/*.md | wc -l | tr -d ' ') files)"
 
-  # Copy skills (recursive for multi-file skills)
-  for skill_dir in "$SCRIPT_DIR"/skills/*/; do
-    skill_name=$(basename "$skill_dir")
-    mkdir -p "$CLAUDE_DIR/skills/$skill_name"
-    cp -r "$skill_dir"* "$CLAUDE_DIR/skills/$skill_name/"
-  done
-  ok "Skills installed ($(ls -d "$SCRIPT_DIR"/skills/*/ | wc -l | tr -d ' ') skills)"
+  # Copy skills (only those enabled in godmode-skills.conf)
+  local installed=0
+  local skipped=0
+
+  if [ ! -f "$SKILLS_CONF" ]; then
+    warn "godmode-skills.conf not found — installing ALL skills"
+    for skill_dir in "$SCRIPT_DIR"/skills/*/; do
+      skill_name=$(basename "$skill_dir")
+      mkdir -p "$CLAUDE_DIR/skills/$skill_name"
+      cp -r "$skill_dir"* "$CLAUDE_DIR/skills/$skill_name/"
+      installed=$((installed + 1))
+    done
+  else
+    # Read enabled skills (non-empty, non-comment lines)
+    local enabled_skills=()
+    while IFS= read -r line; do
+      line="${line%%#*}"       # strip inline comments
+      line="${line// /}"       # strip spaces
+      [[ -z "$line" ]] && continue
+      enabled_skills+=("$line")
+    done < "$SKILLS_CONF"
+
+    for skill_dir in "$SCRIPT_DIR"/skills/*/; do
+      skill_name=$(basename "$skill_dir")
+      local is_enabled=false
+      for enabled in "${enabled_skills[@]}"; do
+        if [[ "$enabled" == "$skill_name" ]]; then
+          is_enabled=true
+          break
+        fi
+      done
+
+      if $is_enabled; then
+        mkdir -p "$CLAUDE_DIR/skills/$skill_name"
+        cp -r "$skill_dir"* "$CLAUDE_DIR/skills/$skill_name/"
+        installed=$((installed + 1))
+      else
+        skipped=$((skipped + 1))
+      fi
+    done
+  fi
+  ok "Skills installed: $installed enabled, $skipped disabled (edit godmode-skills.conf to toggle)"
 
   # Copy rules
   cp "$SCRIPT_DIR"/rules/*.md "$CLAUDE_DIR/rules/"
@@ -216,12 +252,12 @@ verify_install() {
 
   local errors=0
 
-  [ -f "$CLAUDE_DIR/CLAUDE.md" ] && ok "CLAUDE.md exists" || { err "CLAUDE.md missing"; ((errors++)); }
-  [ -d "$CLAUDE_DIR/agents" ] && ok "agents/ exists" || { err "agents/ missing"; ((errors++)); }
-  [ -d "$CLAUDE_DIR/skills" ] && ok "skills/ exists" || { err "skills/ missing"; ((errors++)); }
-  [ -d "$CLAUDE_DIR/rules" ] && ok "rules/ exists" || { err "rules/ missing"; ((errors++)); }
-  [ -d "$CLAUDE_DIR/commands" ] && ok "commands/ exists" || { err "commands/ missing"; ((errors++)); }
-  [ -d "$CLAUDE_DIR/hooks" ] && ok "hooks/ exists" || { err "hooks/ missing"; ((errors++)); }
+  [ -f "$CLAUDE_DIR/CLAUDE.md" ] && ok "CLAUDE.md exists" || { err "CLAUDE.md missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/agents" ] && ok "agents/ exists" || { err "agents/ missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/skills" ] && ok "skills/ exists" || { err "skills/ missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/rules" ] && ok "rules/ exists" || { err "rules/ missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/commands" ] && ok "commands/ exists" || { err "commands/ missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/hooks" ] && ok "hooks/ exists" || { err "hooks/ missing"; errors=$((errors + 1)); }
 
   # Count components
   local skill_count=$(ls -d "$CLAUDE_DIR"/skills/*/ 2>/dev/null | wc -l | tr -d ' ')

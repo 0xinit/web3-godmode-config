@@ -1,6 +1,6 @@
 ---
 name: smart-contract-audit
-description: Pre-deployment smart contract audit checklist. Manual invoke only — use before deploying any smart contract to testnet or mainnet. Walks through static analysis, access control, upgrade safety, economic vectors, gas DoS, external dependencies, events, and documentation.
+description: Pre-deployment smart contract audit checklist. Static analysis, access control, reentrancy, economic vectors.
 disable-model-invocation: true
 ---
 

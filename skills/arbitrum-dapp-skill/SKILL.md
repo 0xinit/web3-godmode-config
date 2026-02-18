@@ -1,6 +1,6 @@
 ---
 name: arbitrum-dapp-skill
-description: Opinionated guide for building dApps on Arbitrum using Stylus (Rust) and/or Solidity. Covers local devnode setup, contract development, testing, deployment, and React frontend integration with viem. Use when starting a new Arbitrum project, writing Stylus or Solidity contracts, deploying to Arbitrum, or building a frontend that interacts with Arbitrum contracts.
+description: Arbitrum dApp development with Stylus (Rust), Solidity, Foundry, nitro-devnode, and viem frontend.
 ---
 
 # Arbitrum dApp Development

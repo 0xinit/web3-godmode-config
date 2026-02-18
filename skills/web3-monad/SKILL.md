@@ -1,6 +1,6 @@
 ---
 name: web3-monad
-description: Complete Monad L1 development playbook. Covers MonadBFT consensus (400ms blocks, 800ms finality, tail-fork resistance), parallel/deferred execution, MonadDb, JIT compilation, gas pricing (gas limit charged, not gas used), opcode repricing (cold access 4x), EIP-7702 delegation, staking precompile, deployment (Foundry monad fork, Hardhat 2/3), verification (MonadVision, Monadscan, Socialscan), execution events (shared-memory low-latency), ecosystem (Pyth, LayerZero, CCIP, Safe, ERC-4337), and key differences from Ethereum (128kb contracts, no blobs, no global mempool, reserve balance). Use when building on Monad, deploying contracts, integrating staking, consuming execution events, or needing Monad-specific architecture details.
+description: Monad L1 development. 400ms blocks, parallel execution, gas-limit charging, opcode repricing, staking, deploy.
 ---
 
 # Monad L1 Development Skill

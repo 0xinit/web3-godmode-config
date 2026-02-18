@@ -1,6 +1,6 @@
 ---
 name: web3-privy
-description: Privy authentication SDK patterns for web3 apps. Use when implementing wallet-based auth, embedded wallets, social login, or server-side verification with Privy. Covers PrivyProvider setup, auth methods, embedded wallets, and wagmi integration.
+description: Privy auth SDK. Wallet login, embedded wallets, social login, server verification, wagmi integration.
 ---
 
 # Privy SDK Patterns

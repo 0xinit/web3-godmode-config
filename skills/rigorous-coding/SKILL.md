@@ -1,6 +1,6 @@
 ---
 name: rigorous-coding
-description: Apply rigorous coding standards before any implementation. Use when writing, implementing, or reviewing code. Enforces pre-implementation thinking, error handling, state management, naming, and post-implementation verification.
+description: Rigorous coding standards. Pre-implementation checklist, error handling, state management, naming, verification.
 ---
 
 # Rigorous Coding Standards
