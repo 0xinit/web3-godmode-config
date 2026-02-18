@@ -25,9 +25,16 @@ The installer will:
 1. Check prerequisites
 2. Detect compound-engineering plugin
 3. Backup existing `~/.claude/` config
-4. Copy all files to `~/.claude/`
-5. Register hooks in `settings.json`
-6. Verify installation
+4. Copy all skills to `~/.claude/godmode-store/` and symlink enabled ones to `~/.claude/skills/`
+5. Install the `godmode` CLI to `~/.claude/bin/`
+6. Register hooks in `settings.json`
+7. Verify installation
+
+After install, add to your shell profile:
+
+```bash
+export PATH="$HOME/.claude/bin:$PATH"
+```
 
 ### Manual Install
 
@@ -35,35 +42,47 @@ The installer will:
 # Copy everything to ~/.claude/
 cp CLAUDE.md ~/.claude/
 cp -r agents/ ~/.claude/agents/
-cp -r skills/ ~/.claude/skills/
+cp -r skills/ ~/.claude/godmode-store/   # store, not skills/
 cp -r rules/ ~/.claude/rules/
 cp -r commands/ ~/.claude/commands/
 cp -r hooks/ ~/.claude/hooks/
+cp godmode ~/.claude/bin/godmode && chmod +x ~/.claude/bin/godmode
+cp godmode-skills.conf ~/.claude/godmode-skills.conf
 
 # Make hooks executable
 chmod +x ~/.claude/hooks/*.py ~/.claude/hooks/*.sh
+
+# Symlink just the skills you want
+ln -s ~/.claude/godmode-store/rigorous-coding ~/.claude/skills/rigorous-coding
 ```
 
 Then manually add hooks to `~/.claude/settings.json` (see install.sh for hook config).
 
-### Selective Install
+### Skill Management (godmode CLI)
 
-Only want specific skills? Copy individual directories:
+Skills are stored in `~/.claude/godmode-store/` and symlinked on-demand into `~/.claude/skills/`. This prevents overflowing Claude Code's ~16K skill description budget when combined with plugins.
 
 ```bash
-# Just the Solidity skills
-cp -r skills/solidity-security/ ~/.claude/skills/
-cp -r skills/web3-foundry/ ~/.claude/skills/
-cp rules/solidity.md ~/.claude/rules/
-
-# Just the React skills
-cp -r skills/react-useeffect/ ~/.claude/skills/
-cp -r skills/vercel-react-best-practices/ ~/.claude/skills/
-
-# Just a single chain
-cp -r skills/web3-megaeth/ ~/.claude/skills/
-cp -r skills/arbitrum-dapp-skill/ ~/.claude/skills/
+godmode list                  # show all 18 skills, enabled/disabled
+godmode enable megaeth        # fuzzy match → enables web3-megaeth
+godmode enable solidity       # matches solidity-security + web3-solidity-patterns
+godmode disable megaeth       # remove from active skills
+godmode enable-all            # symlink everything
+godmode disable-all           # clear all active skills
+godmode status                # show budget usage (chars used / 16K limit)
+godmode profile solidity      # enable a predefined skill group
 ```
+
+**Profiles** (defined in `godmode-skills.conf`):
+
+| Profile | Skills |
+|---------|--------|
+| `solidity` | rigorous-coding, solidity-security, web3-solidity-patterns, web3-foundry, web3-hardhat, web3-eip-reference, smart-contract-audit |
+| `react` | rigorous-coding, react-useeffect, vercel-react-best-practices, web3-frontend, web3-privy |
+| `rust` | rigorous-coding, rust-patterns, web3-solana-simd |
+| `fullstack` | rigorous-coding, planning-with-files, react + solidity essentials |
+
+By default, only `planning-with-files` and `rigorous-coding` are enabled on install. Edit `godmode-skills.conf` to change defaults, or use the CLI at runtime.
 
 ## Customization
 
