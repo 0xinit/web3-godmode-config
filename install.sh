@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 BACKUP_DIR="$CLAUDE_DIR/backup-$(date +%Y%m%d-%H%M%S)"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+SKILLS_CONF="$SCRIPT_DIR/godmode-skills.conf"
 
 # Colors
 RED='\033[0;31m'
@@ -83,7 +84,7 @@ detect_plugins() {
 backup_existing() {
   local needs_backup=false
 
-  for dir in agents skills rules commands hooks; do
+  for dir in agents skills rules commands hooks godmode-store; do
     if [ -d "$CLAUDE_DIR/$dir" ]; then
       needs_backup=true
       break
@@ -98,7 +99,7 @@ backup_existing() {
     info "Backing up existing config to $BACKUP_DIR/"
     mkdir -p "$BACKUP_DIR"
 
-    for dir in agents skills rules commands hooks; do
+    for dir in agents skills rules commands hooks godmode-store; do
       if [ -d "$CLAUDE_DIR/$dir" ]; then
         cp -r "$CLAUDE_DIR/$dir" "$BACKUP_DIR/"
       fi
@@ -130,13 +131,72 @@ install_files() {
   cp "$SCRIPT_DIR"/agents/*.md "$CLAUDE_DIR/agents/"
   ok "Agents installed ($(ls "$SCRIPT_DIR"/agents/*.md | wc -l | tr -d ' ') files)"
 
-  # Copy skills (recursive for multi-file skills)
+  # Copy ALL skills to godmode-store, symlink enabled ones to skills/
+  local store_dir="$CLAUDE_DIR/godmode-store"
+  mkdir -p "$store_dir" "$CLAUDE_DIR/skills"
+
+  # Clear old store and rebuild
+  rm -rf "$store_dir"/*
+
+  local total=0
   for skill_dir in "$SCRIPT_DIR"/skills/*/; do
     skill_name=$(basename "$skill_dir")
-    mkdir -p "$CLAUDE_DIR/skills/$skill_name"
-    cp -r "$skill_dir"* "$CLAUDE_DIR/skills/$skill_name/"
+    cp -r "$skill_dir" "$store_dir/$skill_name"
+    total=$((total + 1))
   done
-  ok "Skills installed ($(ls -d "$SCRIPT_DIR"/skills/*/ | wc -l | tr -d ' ') skills)"
+  ok "Skill store: $total skills copied to godmode-store/"
+
+  # Symlink enabled skills
+  local installed=0
+  local skipped=0
+
+  # Read enabled skills from conf (non-empty, non-comment, non-section lines)
+  local enabled_skills=()
+  if [ -f "$SKILLS_CONF" ]; then
+    while IFS= read -r line; do
+      line="${line%%#*}"       # strip inline comments
+      line="$(echo "$line" | xargs)" # trim whitespace
+      [[ -z "$line" ]] && continue
+      [[ "$line" == "["* ]] && break  # stop at profile sections
+      enabled_skills+=("$line")
+    done < "$SKILLS_CONF"
+  fi
+
+  # Remove existing godmode symlinks (leave non-symlink dirs alone)
+  for skill in $(ls -1 "$store_dir" 2>/dev/null); do
+    [ -L "$CLAUDE_DIR/skills/$skill" ] && rm "$CLAUDE_DIR/skills/$skill"
+  done
+
+  if [ ${#enabled_skills[@]} -eq 0 ]; then
+    warn "No skills enabled in godmode-skills.conf — use 'godmode enable <name>' to activate"
+    skipped=$total
+  else
+    for skill_dir in "$SCRIPT_DIR"/skills/*/; do
+      skill_name=$(basename "$skill_dir")
+      local is_enabled=false
+      for enabled in "${enabled_skills[@]}"; do
+        if [[ "$enabled" == "$skill_name" ]]; then
+          is_enabled=true
+          break
+        fi
+      done
+
+      if $is_enabled; then
+        ln -s "$store_dir/$skill_name" "$CLAUDE_DIR/skills/$skill_name"
+        installed=$((installed + 1))
+      else
+        skipped=$((skipped + 1))
+      fi
+    done
+  fi
+  ok "Skills active: $installed enabled, $skipped available (use 'godmode' CLI to toggle)"
+
+  # Install godmode CLI
+  mkdir -p "$CLAUDE_DIR/bin"
+  cp "$SCRIPT_DIR/godmode" "$CLAUDE_DIR/bin/godmode"
+  chmod +x "$CLAUDE_DIR/bin/godmode"
+  cp "$SKILLS_CONF" "$CLAUDE_DIR/godmode-skills.conf"
+  ok "godmode CLI installed to ~/.claude/bin/godmode"
 
   # Copy rules
   cp "$SCRIPT_DIR"/rules/*.md "$CLAUDE_DIR/rules/"
@@ -216,15 +276,18 @@ verify_install() {
 
   local errors=0
 
-  [ -f "$CLAUDE_DIR/CLAUDE.md" ] && ok "CLAUDE.md exists" || { err "CLAUDE.md missing"; ((errors++)); }
-  [ -d "$CLAUDE_DIR/agents" ] && ok "agents/ exists" || { err "agents/ missing"; ((errors++)); }
-  [ -d "$CLAUDE_DIR/skills" ] && ok "skills/ exists" || { err "skills/ missing"; ((errors++)); }
-  [ -d "$CLAUDE_DIR/rules" ] && ok "rules/ exists" || { err "rules/ missing"; ((errors++)); }
-  [ -d "$CLAUDE_DIR/commands" ] && ok "commands/ exists" || { err "commands/ missing"; ((errors++)); }
-  [ -d "$CLAUDE_DIR/hooks" ] && ok "hooks/ exists" || { err "hooks/ missing"; ((errors++)); }
+  [ -f "$CLAUDE_DIR/CLAUDE.md" ] && ok "CLAUDE.md exists" || { err "CLAUDE.md missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/agents" ] && ok "agents/ exists" || { err "agents/ missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/skills" ] && ok "skills/ exists" || { err "skills/ missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/godmode-store" ] && ok "godmode-store/ exists" || { err "godmode-store/ missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/rules" ] && ok "rules/ exists" || { err "rules/ missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/commands" ] && ok "commands/ exists" || { err "commands/ missing"; errors=$((errors + 1)); }
+  [ -d "$CLAUDE_DIR/hooks" ] && ok "hooks/ exists" || { err "hooks/ missing"; errors=$((errors + 1)); }
+  [ -x "$CLAUDE_DIR/bin/godmode" ] && ok "godmode CLI installed" || { err "godmode CLI missing"; errors=$((errors + 1)); }
 
   # Count components
-  local skill_count=$(ls -d "$CLAUDE_DIR"/skills/*/ 2>/dev/null | wc -l | tr -d ' ')
+  local active_skills=$(ls -l "$CLAUDE_DIR"/skills/ 2>/dev/null | grep '^l' | wc -l | tr -d ' ')
+  local store_skills=$(ls -d "$CLAUDE_DIR"/godmode-store/*/ 2>/dev/null | wc -l | tr -d ' ')
   local rule_count=$(ls "$CLAUDE_DIR"/rules/*.md 2>/dev/null | wc -l | tr -d ' ')
   local agent_count=$(ls "$CLAUDE_DIR"/agents/*.md 2>/dev/null | wc -l | tr -d ' ')
 
@@ -234,13 +297,21 @@ verify_install() {
     echo ""
     echo "  Components installed:"
     echo "    Agents:   $agent_count"
-    echo "    Skills:   $skill_count"
+    echo "    Skills:   $active_skills active / $store_skills available"
     echo "    Rules:    $rule_count"
     echo "    Commands: $(ls "$CLAUDE_DIR"/commands/*.md 2>/dev/null | wc -l | tr -d ' ')"
     echo "    Hooks:    $(ls "$CLAUDE_DIR"/hooks/* 2>/dev/null | wc -l | tr -d ' ')"
     echo ""
+    echo "  Add to your shell profile:"
+    echo "    export PATH=\"\$HOME/.claude/bin:\$PATH\""
+    echo ""
+    echo "  Then use:"
+    echo "    godmode list              # see all skills"
+    echo "    godmode enable megaeth    # activate a skill"
+    echo "    godmode profile solidity  # activate a profile"
+    echo "    godmode status            # check budget usage"
+    echo ""
     echo "  Start a new Claude Code session to use the config."
-    echo "  Test: claude \"What skills are available?\""
   else
     err "$errors errors found. Check the output above."
   fi

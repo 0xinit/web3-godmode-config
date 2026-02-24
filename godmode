@@ -1,0 +1,386 @@
+#!/usr/bin/env bash
+# ============================================================================
+# godmode — On-demand skill toggler for web3-godmode-config
+#
+# Skills live in ~/.claude/godmode-store/ (full copies).
+# Active skills are symlinked into ~/.claude/skills/.
+# ============================================================================
+
+set -euo pipefail
+
+STORE_DIR="$HOME/.claude/godmode-store"
+SKILLS_DIR="$HOME/.claude/skills"
+CONF_FILE="$HOME/.claude/godmode-skills.conf"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+DIM='\033[2m'
+NC='\033[0m'
+
+BUDGET_LIMIT=16000
+
+# ---- Helpers ----
+
+die() { echo -e "${RED}error:${NC} $1" >&2; exit 1; }
+
+restart_msg() {
+  echo -e "${DIM}Restart Claude Code to load changes.${NC}"
+}
+
+# List all skill names from the store
+all_skills() {
+  ls -1 "$STORE_DIR" 2>/dev/null | sort
+}
+
+# Check if a skill is currently enabled (symlinked)
+is_enabled() {
+  [ -L "$SKILLS_DIR/$1" ] || [ -d "$SKILLS_DIR/$1" ]
+}
+
+# Fuzzy match: given a query, find matching skill names.
+# Exact match wins. Otherwise strips web3- prefix for matching.
+fuzzy_match() {
+  local query="$1"
+  local matches=()
+
+  # Exact match first
+  for skill in $(all_skills); do
+    if [[ "$skill" == "$query" ]]; then
+      echo "$skill"
+      return 0
+    fi
+  done
+
+  # Fuzzy: match query against skill name with web3- stripped
+  for skill in $(all_skills); do
+    local bare="${skill#web3-}"
+    if [[ "$bare" == "$query" ]] || [[ "$skill" == *"$query"* ]]; then
+      matches+=("$skill")
+    fi
+  done
+
+  if [ ${#matches[@]} -eq 0 ]; then
+    return 1
+  fi
+
+  printf '%s\n' "${matches[@]}"
+  return 0
+}
+
+# Read description from SKILL.md frontmatter
+skill_description_chars() {
+  local skill_dir="$1"
+  local skill_md="$skill_dir/SKILL.md"
+  [ -f "$skill_md" ] || return 0
+
+  # Extract description field from YAML frontmatter
+  local desc=""
+  local in_frontmatter=false
+  while IFS= read -r line; do
+    if [[ "$line" == "---" ]]; then
+      if $in_frontmatter; then break; fi
+      in_frontmatter=true
+      continue
+    fi
+    if $in_frontmatter && [[ "$line" =~ ^description: ]]; then
+      desc="${line#description: }"
+      desc="${desc#\"}"
+      desc="${desc%\"}"
+    fi
+  done < "$skill_md"
+
+  echo "${#desc}"
+}
+
+# ---- Commands ----
+
+cmd_enable() {
+  [ -d "$STORE_DIR" ] || die "Store not found at $STORE_DIR. Run install.sh first."
+  [ $# -ge 1 ] || die "Usage: godmode enable <skill-name>"
+
+  local query="$1"
+  local matches
+  matches=$(fuzzy_match "$query" 2>/dev/null) || die "No skill matching '$query' found."
+
+  local match_count
+  match_count=$(echo "$matches" | wc -l | tr -d ' ')
+
+  if [ "$match_count" -gt 1 ]; then
+    echo -e "${CYAN}Multiple matches for '$query':${NC}"
+    local i=1
+    while IFS= read -r m; do
+      local status="disabled"
+      is_enabled "$m" && status="${GREEN}enabled${NC}"
+      echo -e "  $i) $m ($status)"
+      i=$((i + 1))
+    done <<< "$matches"
+
+    read -p "Enable all? [Y/n/number] " -r choice
+    echo
+    if [[ "$choice" =~ ^[0-9]+$ ]]; then
+      matches=$(echo "$matches" | sed -n "${choice}p")
+    elif [[ "$choice" =~ ^[Nn]$ ]]; then
+      echo "Cancelled."
+      return 0
+    fi
+    # else: enable all matches
+  fi
+
+  while IFS= read -r skill; do
+    if is_enabled "$skill"; then
+      echo -e "${YELLOW}$skill${NC} already enabled"
+    else
+      ln -s "$STORE_DIR/$skill" "$SKILLS_DIR/$skill"
+      echo -e "${GREEN}+${NC} $skill enabled"
+    fi
+  done <<< "$matches"
+
+  restart_msg
+}
+
+cmd_disable() {
+  [ $# -ge 1 ] || die "Usage: godmode disable <skill-name>"
+
+  local query="$1"
+  local matches
+  matches=$(fuzzy_match "$query" 2>/dev/null) || die "No skill matching '$query' found."
+
+  local match_count
+  match_count=$(echo "$matches" | wc -l | tr -d ' ')
+
+  if [ "$match_count" -gt 1 ]; then
+    echo -e "${CYAN}Multiple matches for '$query':${NC}"
+    local i=1
+    while IFS= read -r m; do
+      local status="disabled"
+      is_enabled "$m" && status="${GREEN}enabled${NC}"
+      echo -e "  $i) $m ($status)"
+      i=$((i + 1))
+    done <<< "$matches"
+
+    read -p "Disable all? [Y/n/number] " -r choice
+    echo
+    if [[ "$choice" =~ ^[0-9]+$ ]]; then
+      matches=$(echo "$matches" | sed -n "${choice}p")
+    elif [[ "$choice" =~ ^[Nn]$ ]]; then
+      echo "Cancelled."
+      return 0
+    fi
+  fi
+
+  while IFS= read -r skill; do
+    if [ -L "$SKILLS_DIR/$skill" ]; then
+      rm "$SKILLS_DIR/$skill"
+      echo -e "${RED}-${NC} $skill disabled"
+    elif [ -d "$SKILLS_DIR/$skill" ]; then
+      echo -e "${YELLOW}$skill${NC} is a real directory (not a symlink) — skipping"
+      echo "  Remove manually if needed: rm -rf $SKILLS_DIR/$skill"
+    else
+      echo -e "${DIM}$skill already disabled${NC}"
+    fi
+  done <<< "$matches"
+
+  restart_msg
+}
+
+cmd_list() {
+  [ -d "$STORE_DIR" ] || die "Store not found at $STORE_DIR. Run install.sh first."
+
+  echo -e "${CYAN}godmode skills${NC}"
+  echo ""
+
+  local enabled_count=0
+  local total=0
+
+  for skill in $(all_skills); do
+    total=$((total + 1))
+    if is_enabled "$skill"; then
+      echo -e "  ${GREEN}*${NC} $skill"
+      enabled_count=$((enabled_count + 1))
+    else
+      echo -e "  ${DIM}  $skill${NC}"
+    fi
+  done
+
+  echo ""
+  echo -e "  ${enabled_count}/${total} enabled"
+}
+
+cmd_enable_all() {
+  [ -d "$STORE_DIR" ] || die "Store not found at $STORE_DIR. Run install.sh first."
+  mkdir -p "$SKILLS_DIR"
+
+  local count=0
+  for skill in $(all_skills); do
+    if ! is_enabled "$skill"; then
+      ln -s "$STORE_DIR/$skill" "$SKILLS_DIR/$skill"
+      count=$((count + 1))
+    fi
+  done
+
+  echo -e "${GREEN}Enabled $count skills${NC} ($(all_skills | wc -l | tr -d ' ') total)"
+  restart_msg
+}
+
+cmd_disable_all() {
+  local count=0
+  for skill in $(all_skills); do
+    if [ -L "$SKILLS_DIR/$skill" ]; then
+      rm "$SKILLS_DIR/$skill"
+      count=$((count + 1))
+    fi
+  done
+
+  echo -e "${RED}Disabled $count skills${NC}"
+  restart_msg
+}
+
+cmd_status() {
+  [ -d "$STORE_DIR" ] || die "Store not found at $STORE_DIR. Run install.sh first."
+
+  local total_chars=0
+  local active_skills=()
+
+  for skill in $(all_skills); do
+    if is_enabled "$skill"; then
+      local chars
+      chars=$(skill_description_chars "$STORE_DIR/$skill")
+      total_chars=$((total_chars + chars))
+      active_skills+=("$skill:$chars")
+    fi
+  done
+
+  echo -e "${CYAN}Skill budget usage${NC}"
+  echo ""
+
+  for entry in "${active_skills[@]}"; do
+    local name="${entry%%:*}"
+    local chars="${entry##*:}"
+    printf "  %-35s %5d chars\n" "$name" "$chars"
+  done
+
+  echo ""
+  local pct=$((total_chars * 100 / BUDGET_LIMIT))
+  local color="$GREEN"
+  [ "$pct" -gt 60 ] && color="$YELLOW"
+  [ "$pct" -gt 85 ] && color="$RED"
+
+  echo -e "  Total: ${color}${total_chars}${NC} / ${BUDGET_LIMIT} chars (${pct}%)"
+
+  if [ "$pct" -gt 85 ]; then
+    echo ""
+    echo -e "  ${RED}Warning:${NC} Near budget limit. Plugin skills may be silently dropped."
+    echo "  Disable unused skills with: godmode disable <name>"
+  fi
+}
+
+cmd_profile() {
+  [ $# -ge 1 ] || die "Usage: godmode profile <name>"
+  [ -f "$CONF_FILE" ] || die "Config not found at $CONF_FILE. Run install.sh first."
+
+  local profile_name="$1"
+  local in_profile=false
+  local profile_skills=()
+
+  while IFS= read -r line; do
+    line="${line%%#*}"         # strip comments
+    line="$(echo "$line" | xargs)" # trim whitespace
+    [[ -z "$line" ]] && continue
+
+    if [[ "$line" == "[profile:$profile_name]" ]]; then
+      in_profile=true
+      continue
+    fi
+
+    # Stop at next section header
+    if [[ "$line" == "["* ]]; then
+      $in_profile && break
+      continue
+    fi
+
+    if $in_profile; then
+      profile_skills+=("$line")
+    fi
+  done < "$CONF_FILE"
+
+  if [ ${#profile_skills[@]} -eq 0 ]; then
+    # List available profiles
+    local profiles=()
+    while IFS= read -r line; do
+      if [[ "$line" =~ ^\[profile:(.+)\]$ ]]; then
+        profiles+=("${BASH_REMATCH[1]}")
+      fi
+    done < "$CONF_FILE"
+
+    if [ ${#profiles[@]} -eq 0 ]; then
+      die "No profiles defined in $CONF_FILE"
+    fi
+
+    echo -e "${RED}Profile '$profile_name' not found.${NC}"
+    echo ""
+    echo "Available profiles:"
+    for p in "${profiles[@]}"; do
+      echo "  - $p"
+    done
+    return 1
+  fi
+
+  # Disable all godmode skills first, then enable profile skills
+  echo -e "${CYAN}Activating profile: $profile_name${NC}"
+  echo ""
+
+  cmd_disable_all 2>/dev/null
+
+  local enabled=0
+  for skill in "${profile_skills[@]}"; do
+    if [ -d "$STORE_DIR/$skill" ]; then
+      ln -s "$STORE_DIR/$skill" "$SKILLS_DIR/$skill"
+      echo -e "  ${GREEN}+${NC} $skill"
+      enabled=$((enabled + 1))
+    else
+      echo -e "  ${YELLOW}?${NC} $skill (not found in store)"
+    fi
+  done
+
+  echo ""
+  echo -e "${GREEN}$enabled skills enabled${NC}"
+  restart_msg
+}
+
+cmd_help() {
+  echo "godmode — On-demand skill toggler for web3-godmode-config"
+  echo ""
+  echo "Usage:"
+  echo "  godmode enable <name>     Enable a skill (fuzzy match)"
+  echo "  godmode disable <name>    Disable a skill"
+  echo "  godmode list              Show all skills with status"
+  echo "  godmode enable-all        Enable all skills"
+  echo "  godmode disable-all       Disable all skills"
+  echo "  godmode status            Show budget usage"
+  echo "  godmode profile <name>    Activate a skill profile"
+  echo "  godmode help              Show this help"
+  echo ""
+  echo "Examples:"
+  echo "  godmode enable megaeth          # matches web3-megaeth"
+  echo "  godmode enable solidity         # matches solidity-security + web3-solidity-patterns"
+  echo "  godmode profile solidity        # enable all solidity-related skills"
+  echo "  godmode disable-all             # clear all, start fresh"
+}
+
+# ---- Main ----
+
+mkdir -p "$SKILLS_DIR"
+
+case "${1:-help}" in
+  enable)     shift; cmd_enable "$@" ;;
+  disable)    shift; cmd_disable "$@" ;;
+  list)       cmd_list ;;
+  enable-all) cmd_enable_all ;;
+  disable-all) cmd_disable_all ;;
+  status)     cmd_status ;;
+  profile)    shift; cmd_profile "$@" ;;
+  help|--help|-h) cmd_help ;;
+  *) die "Unknown command: $1. Run 'godmode help' for usage." ;;
+esac

@@ -1,6 +1,6 @@
 ---
 name: rust-patterns
-description: Rust and Anchor/Solana development patterns. Use when writing Rust code, Anchor programs, or reviewing Solana smart contracts. Covers account validation, PDA derivation, CPI security, and general Rust best practices.
+description: Rust and Anchor/Solana patterns. Account validation, PDA derivation, CPI security, error handling.
 ---
 
 # Rust & Anchor Patterns

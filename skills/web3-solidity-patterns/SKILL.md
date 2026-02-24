@@ -1,6 +1,6 @@
 ---
 name: web3-solidity-patterns
-description: Solidity design patterns and best practices. Use when designing contract architecture, implementing proxies, governance, access control, or any structural Solidity patterns. Covers Factory, Proxy, Diamond, Governor, and more.
+description: Solidity design patterns. Factory, Proxy (UUPS/Diamond), access control, pull payments, events.
 ---
 
 # Solidity Design Patterns

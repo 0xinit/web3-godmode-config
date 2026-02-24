@@ -1,6 +1,6 @@
 ---
 name: solidity-security
-description: Solidity security patterns and vulnerability prevention. Use before writing any Solidity code, during code review, or before deployment. Covers reentrancy, access control, integer safety, oracle manipulation, flash loans, and gas optimization.
+description: Solidity security. Reentrancy/CEI, access control, integer safety, oracle manipulation, flash loans, gas.
 ---
 
 # Solidity Security

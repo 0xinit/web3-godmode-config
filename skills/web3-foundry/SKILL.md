@@ -1,6 +1,6 @@
 ---
 name: web3-foundry
-description: Foundry toolchain reference for Solidity development. Use when working with forge, cast, anvil, or chisel. Covers building, testing (unit, fuzz, invariant, fork), deployment, and verification.
+description: Foundry toolchain. forge build/test/deploy, cast interaction, anvil local node, cheatcodes, scripts.
 ---
 
 # Foundry Toolchain Reference

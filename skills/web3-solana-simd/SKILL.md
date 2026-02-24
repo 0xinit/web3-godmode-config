@@ -1,6 +1,6 @@
 ---
 name: web3-solana-simd
-description: Solana Improvement Document (SIMD) lookup and reference. Use when you need to understand Solana protocol changes, improvement proposals, or Solana-specific concepts. Includes key SIMDs inline and lookup instructions.
+description: Solana SIMD lookup. Key improvement proposals, accounts model, PDAs, CPIs, rent mechanics.
 ---
 
 # SIMD Reference

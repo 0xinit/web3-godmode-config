@@ -1,6 +1,6 @@
 ---
 name: web3-hardhat
-description: Hardhat toolchain reference for Solidity development. Use when working with hardhat.config.ts, ethers.js testing, deployment scripts, or Hardhat plugins. Covers configuration, testing, deployment, and common plugins.
+description: Hardhat toolchain. Config, ethers.js testing, Ignition deployment, coverage, fork testing, verification.
 ---
 
 # Hardhat Toolchain Reference

@@ -1,6 +1,6 @@
 ---
 name: web3-frontend
-description: Web3 frontend patterns for dApp development. Use when building wallet connections, transaction UX, token displays, or any blockchain-connected frontend. Covers wagmi/viem, ethers.js, Solana wallet adapter, BigNumber handling, and error translation.
+description: Web3 frontend. wagmi/viem wallet connection, transaction UX, BigNumber display, chain switching, ENS.
 ---
 
 # Web3 Frontend Patterns

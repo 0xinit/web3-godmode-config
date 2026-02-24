@@ -1,6 +1,6 @@
 ---
 name: web3-eip-reference
-description: Ethereum Improvement Proposal (EIP) lookup and reference. Use when you need to understand an EIP, implement an ERC standard, or reference Ethereum protocol changes. Includes top 50 EIPs inline and lookup instructions for any EIP.
+description: EIP/ERC lookup. Top 50 Ethereum standards inline (ERC-20, 721, 1155, 4626, EIP-4337, 712, 1559).
 ---
 
 # EIP Reference
