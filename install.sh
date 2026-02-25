@@ -229,26 +229,36 @@ register_hooks() {
   "hooks": {
     "UserPromptSubmit": [
       {
-        "type": "command",
-        "command": "python3 ~/.claude/hooks/keyword-detector.py",
-        "timeout": 5000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/keyword-detector.py",
+            "timeout": 5000
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": {
-          "tool_name": "Write|Edit|MultiEdit"
-        },
-        "type": "command",
-        "command": "python3 ~/.claude/hooks/check-comments.py",
-        "timeout": 5000
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/check-comments.py",
+            "timeout": 5000
+          }
+        ]
       }
     ],
     "Stop": [
       {
-        "type": "command",
-        "command": "bash ~/.claude/hooks/todo-enforcer.sh",
-        "timeout": 5000
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/todo-enforcer.sh",
+            "timeout": 5000
+          }
+        ]
       }
     ]
   }
